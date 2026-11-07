@@ -1,0 +1,17 @@
+{
+  "protocol": "mcp",
+  "transport": "stdio",
+  "command": "{{VENV_PYTHON}}",
+  "args": [
+    "-m",
+    "app.mcp.server"
+  ],
+  "cwd": "{{PROJECT_DIR}}",
+  "env": {
+    "PYTHONUNBUFFERED": "1"
+  },
+  "capabilities": {
+    "tools": true
+  },
+  "instructionFile": "INSTRUCTION.md"
+}

@@ -1,0 +1,25 @@
+# Python
+venv/
+*.pyc
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# User & Runtime Data
+data/
+output/
+backups/
+*.db
+*.sqlite3
+*.log
+
+# 安装脚本生成的本机配置(模板入库,生成物不入库)
+skills/workbuddy/connector.json
+mcp.generated.json
+
+# OS & IDE
+.DS_Store
+.idea/
+.vscode/
+.zcode/

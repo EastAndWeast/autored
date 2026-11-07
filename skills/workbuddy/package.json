@@ -1,0 +1,25 @@
+{
+  "name": "xhs-ai-assistant",
+  "displayName": "小红书/Rednote AI 运营助手",
+  "version": "0.2.0",
+  "description": "连接本地小红书运营助手,支持多账号草稿管理、素材受管导入、防重排期发布与数据追踪。",
+  "publisher": "xhs-team",
+  "main": "connector.json",
+  "categories": [
+    "Productivity",
+    "Social Media",
+    "Marketing"
+  ],
+  "engines": {
+    "workbuddy": ">=1.0.0"
+  },
+  "keywords": [
+    "xiaohongshu",
+    "rednote",
+    "mcp",
+    "social-media",
+    "publisher",
+    "drafts"
+  ]
+}
+

@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn>=0.29
+patchright>=1.49
+sqlalchemy>=2.0
+apscheduler>=3.10,<4
+python-multipart>=0.0.9
+pydantic>=2.6
+eval_type_backport>=0.1; python_version < "3.10"  # 3.9 兼容新类型语法(3.10+ 不需要)

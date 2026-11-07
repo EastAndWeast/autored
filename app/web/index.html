@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小红书发布助手</title>
+<script src="/vendor/tailwind.js"></script>
+<script src="/vendor/vue.global.prod.js"></script>
+<style>
+  [v-cloak]{display:none}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  .btn{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;transition:.15s}
+  .btn-primary{background:#e63946;color:#fff}.btn-primary:hover{background:#d62839}
+  .btn-ghost{background:#f1f5f9;color:#334155}.btn-ghost:hover{background:#e2e8f0}
+  .btn-sm{padding:4px 10px;font-size:12px}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px}
+  input,textarea,select{outline:none}
+  .inp{border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;width:100%}
+  .inp:focus{border-color:#e63946}
+  .tag-chip{background:#fde8e8;color:#c1121f;border-radius:999px;padding:2px 10px;font-size:12px}
+  .badge{padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800">
+<div id="app" v-cloak>
+  <div class="flex min-h-screen">
+    <!-- 侧边栏 -->
+    <aside class="w-48 bg-white border-r border-slate-200 flex flex-col py-5 px-3 gap-1 shrink-0">
+      <div class="px-3 mb-4">
+        <div class="text-lg font-bold text-[#e63946]">📕 发布助手</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">多账号 · 定时 · 数据追踪</div>
+      </div>
+      <button v-for="t in tabs" :key="t.key" @click="switchTab(t.key)"
+        class="text-left px-3 py-2 rounded-lg text-sm font-medium transition"
+        :class="tab===t.key ? 'bg-red-50 text-[#e63946]' : 'text-slate-600 hover:bg-slate-50'">
+        {{ t.icon }} {{ t.label }}
+        <span v-if="t.key==='notes' && queueCount" class="ml-1 text-[10px] bg-amber-100 text-amber-700 rounded-full px-1.5">{{queueCount}}</span>
+      </button>
+      <div class="mt-auto px-3 text-[11px] text-slate-400 leading-relaxed">
+        防封提醒:发布任务串行错峰执行<br>单号每日默认 ≤2 篇
+      </div>
+    </aside>
+
+    <!-- 主区域 -->
+    <main class="flex-1 p-6 overflow-auto">
+      <!-- 账号 -->
+      <section v-if="tab==='accounts'">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">账号管理</h2>
+          <button class="btn btn-primary" @click="openAddAccount">＋ 添加账号</button>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div v-for="a in accounts" :key="a.id" class="card p-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-9 h-9 rounded-full bg-[#e63946] text-white flex items-center justify-center font-bold">{{ a.name.slice(0,1) }}</span>
+                <div>
+                  <div class="font-semibold text-sm">{{ a.name }}</div>
+                  <div class="text-[11px] text-slate-400">
+                    {{ a.published_today }}/{{ a.daily_limit }} 今日已发
+                    <template v-if="a.last_publish_at"> · 上次 {{ a.last_publish_at.slice(5,16) }}</template>
+                  </div>
+                </div>
+              </div>
+              <span class="badge" :class="{
+                'bg-green-100 text-green-700': a.status==='online',
+                'bg-amber-100 text-amber-700': a.status==='logging_in',
+                'bg-slate-100 text-slate-500': a.status==='pending',
+                'bg-red-100 text-red-600': a.status==='expired'
+              }">{{ statusText(a.status) }}</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button v-if="a.status==='online'" class="btn btn-ghost btn-sm" @click="checkAccount(a)">检测登录态</button>
+              <button v-if="a.status!=='online'" class="btn btn-ghost btn-sm" @click="reloginAccount(a)">重新扫码</button>
+              <button class="btn btn-ghost btn-sm" @click="editAccount(a)">设置</button>
+              <button class="btn btn-ghost btn-sm" @click="collectAccount(a)">刷新数据</button>
+              <button class="btn btn-ghost btn-sm text-red-500" @click="removeAccount(a)">删除</button>
+            </div>
+          </div>
+          <div v-if="!accounts.length" class="card p-10 text-center text-slate-400 text-sm col-span-2">
+            还没有账号,点右上角「添加账号」用小红书 APP 扫码登录
+          </div>
+        </div>
+      </section>
+
+      <!-- 笔记 -->
+      <section v-if="tab==='notes'">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">笔记管理</h2>
+          <button class="btn btn-primary" @click="openCreate">＋ 新建笔记</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 mb-3 text-sm">
+          <label for="note-account-filter" class="text-slate-600">所属账号</label>
+          <select id="note-account-filter" class="inp !w-auto max-w-full" v-model="noteAccountFilter">
+            <option value="">全部账号</option>
+            <option v-for="a in accounts" :key="a.id" :value="String(a.id)">{{ a.name }}</option>
+          </select>
+          <span class="text-xs text-slate-400">共 {{ notes.length }} 篇</span>
+          <button v-if="noteAccountFilter || noteFilter" class="btn btn-ghost btn-sm" @click="noteAccountFilter=''; noteFilter=''">清除筛选</button>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-3 text-sm">
+          <button v-for="st in ['','draft','pending','queued','publishing','published','failed','overdue','verifying','platform_scheduled']" :key="st"
+            @click="noteFilter=st" class="px-3 py-1 rounded-full text-xs font-medium"
+            :class="noteFilter===st ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'">
+            {{ st ? noteStatusText(st) : '全部' }}
+          </button>
+        </div>
+        <div class="card divide-y divide-slate-100">
+          <div v-for="n in notes" :key="n.id" class="p-4 flex items-center gap-3">
+            <img v-if="n.note_type==='image' && n.media_paths.length && !n.thumbnailFailed" :src="'/static/uploads/'+encodeURIComponent(n.media_paths[0])" :alt="n.title" @error="n.thumbnailFailed=true" class="w-14 h-14 rounded-lg object-cover border border-slate-200">
+            <video v-else-if="n.note_type==='video' && n.media_paths.length" :src="'/static/uploads/'+encodeURIComponent(n.media_paths[0])+'#t=0.1'" preload="metadata" muted class="w-14 h-14 rounded-lg object-cover bg-slate-100"></video>
+            <div v-else class="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center text-xs text-slate-400">无预览</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-medium text-sm truncate">{{ n.title }}</span>
+                <span class="badge" :class="noteBadgeClass(n.status)">{{ noteStatusText(n) }}</span>
+                <span v-if="n.revision" class="text-[10px] text-slate-400 bg-slate-100 rounded px-1.5 py-0.5">rev:{{n.revision}}</span>
+                <span v-if="n.schedule_mode!=='immediate' && n.status!=='draft'" class="badge bg-indigo-50 text-indigo-600">
+                  {{ n.schedule_mode==='platform' ? '平台定时' : '本地定时' }} {{ (n.scheduled_at||'').slice(5,16) }}
+                </span>
+              </div>
+              <div class="text-xs text-slate-600 mt-1">所属账号：<span class="font-medium text-slate-800">{{ n.account_name || '未知账号' }}</span></div>
+              <div class="text-[12px] text-slate-400 mt-0.5 truncate">{{ n.content.slice(0,50) || '无正文' }}</div>
+              <div v-if="n.error" class="text-[12px] text-amber-600 mt-0.5 truncate font-medium">⚠️ {{ n.error }}</div>
+            </div>
+            <div class="flex gap-1.5 shrink-0">
+              <button v-if="['draft','pending','failed','overdue'].includes(n.status)" class="btn btn-primary btn-sm" @click="publishNow(n)">立即发布</button>
+              <button v-if="['draft','pending','overdue'].includes(n.status)" class="btn btn-ghost btn-sm" @click="editNote(n)">编辑</button>
+              <a v-if="n.xhs_url" :href="n.xhs_url" target="_blank" class="btn btn-ghost btn-sm">查看笔记</a>
+              <button class="btn btn-ghost btn-sm text-red-500" @click="removeNote(n)">删除</button>
+            </div>
+          </div>
+          <div v-if="!notes.length" class="p-10 text-center text-slate-400 text-sm">{{ noteAccountFilter || noteFilter ? '没有符合筛选条件的笔记，可切换账号、状态或清除筛选' : '暂无笔记，点右上角新建草稿或发布' }}</div>
+        </div>
+      </section>
+
+      <!-- Obsidian -->
+      <section v-if="tab==='obsidian'">
+        <h2 class="text-xl font-bold mb-4">Obsidian 导入</h2>
+        <div class="card p-4 mb-4 flex items-end gap-3">
+          <div class="flex-1">
+            <label class="text-xs text-slate-500 mb-1 block">Vault 内的待发布文件夹(一个 .md = 一篇笔记)</label>
+            <input class="inp" v-model="obsidianDir" placeholder="/Users/xxx/Documents/MyVault/小红书/待发布">
+          </div>
+          <button class="btn btn-primary" @click="scanObsidian">扫描</button>
+          <button class="btn btn-ghost" @click="saveObsidianDir">保存路径</button>
+        </div>
+        <div class="card p-4 mb-4 text-xs text-slate-500 leading-relaxed">
+          支持 frontmatter:<code>title / tags / account / scheduled_at / cover</code>;
+          图片用 <code>![[xxx.png]]</code> 或 <code>![](相对路径)</code>,按文件名在文件夹内查找;<code>scheduled_at: 2026-11-10 18:00</code> 会自动排期。
+        </div>
+        <div v-if="drafts.length" class="card p-4 mb-4 flex items-end gap-3">
+          <div class="flex-1">
+            <label class="text-xs text-slate-500 mb-1 block">统一指派账号</label>
+            <select class="inp" v-model="obsidianAccountId">
+              <option v-for="a in accounts.filter(x=>x.status==='online')" :key="a.id" :value="a.id">{{ a.name }}</option>
+            </select>
+          </div>
+          <label class="flex items-center gap-1.5 text-xs text-slate-600 mb-2">
+            <input type="checkbox" v-model="obsidianMove"> 导入后移动 md 到「已发布」
+          </label>
+          <button class="btn btn-primary" :disabled="!obsidianAccountId || !selectedDrafts.length" @click="importObsidian">
+            导入选中 ({{ selectedDrafts.length }})
+          </button>
+        </div>
+        <div class="card divide-y divide-slate-100">
+          <div v-for="d in drafts" :key="d.path" class="p-4 flex items-start gap-3">
+            <input type="checkbox" :value="d.path" v-model="selectedDrafts" class="mt-1.5">
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-sm">{{ d.title || '(无标题)' }}</div>
+              <div class="text-xs text-slate-400 truncate mt-0.5">{{ d.content.slice(0,80) }}</div>
+              <div class="flex gap-2 mt-1 flex-wrap text-[11px]">
+                <span class="tag-chip" v-for="t in d.tags" :key="t">#{{t}}</span>
+                <span class="badge bg-blue-50 text-blue-600" v-if="d.images.length">🖼 {{d.images.length}} 张</span>
+                <span class="badge bg-indigo-50 text-indigo-600" v-if="d.scheduled_at">⏰ {{d.scheduled_at.slice(0,16)}}</span>
+                <span class="badge bg-amber-50 text-amber-600" v-if="d.account_name">账号:{{d.account_name}}{{ d.matched_account_id ? '' : '(未匹配)' }}</span>
+                <span v-for="w in d.warnings" class="text-amber-600">⚠ {{w}}</span>
+              </div>
+            </div>
+          </div>
+          <div v-if="!drafts.length" class="p-10 text-center text-slate-400 text-sm">填好路径后点「扫描」</div>
+        </div>
+      </section>
+
+      <!-- 数据 -->
+      <section v-if="tab==='stats'">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">内容数据</h2>
+          <button class="btn btn-primary" @click="refreshStats">🔄 刷新采集</button>
+        </div>
+        <!-- 账号汇总 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+          <div v-for="o in statsOverview" :key="o.account_id" class="card p-4">
+            <div class="flex justify-between items-center">
+              <div>
+                <div class="font-semibold text-sm">{{ o.account_name }}</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">
+                  {{ o.platform_region==='global' ? '海外版 Rednote' : '国内小红书' }} · <span :class="o.compatibility==='fully_supported' ? 'text-green-600' : 'text-amber-600'">{{ o.compatibility_text }}</span>
+                </div>
+              </div>
+              <span class="badge" :class="o.status==='online' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'">{{ statusText(o.status) }}</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 mt-3 text-center">
+              <div><div class="text-lg font-bold">{{ o.impression }}</div><div class="text-[11px] text-slate-400">曝光</div></div>
+              <div><div class="text-lg font-bold">{{ o.read }}</div><div class="text-[11px] text-slate-400">阅读</div></div>
+              <div><div class="text-lg font-bold">{{ o.like }}</div><div class="text-[11px] text-slate-400">点赞</div></div>
+              <div><div class="text-sm font-semibold">{{ o.collect }}</div><div class="text-[11px] text-slate-400">收藏</div></div>
+              <div><div class="text-sm font-semibold">{{ o.comment }}</div><div class="text-[11px] text-slate-400">评论</div></div>
+              <div><div class="text-sm font-semibold">{{ o.share }}</div><div class="text-[11px] text-slate-400">分享</div></div>
+            </div>
+            <div class="flex justify-between items-center text-[11px] text-slate-400 mt-3 pt-2 border-t border-slate-100">
+              <span>已追踪 {{ o.tracked_count }}/{{ o.published_count }} 篇</span>
+              <span>最近采集: {{ o.last_stats_at ? o.last_stats_at.slice(5,16) : '尚未采集' }}</span>
+            </div>
+            <div v-if="o.last_stats_error" class="text-[11px] text-amber-600 mt-1 truncate">⚠️ {{ o.last_stats_error }}</div>
+          </div>
+        </div>
+        <!-- 笔记明细 -->
+        <div class="flex gap-2 mb-3 text-sm flex-wrap">
+          <button @click="filterAccount(0)" class="px-3 py-1 rounded-full"
+            :class="!statsAccountFilter ? 'bg-slate-800 text-white' : 'bg-white border border-slate-200'">全部账号</button>
+          <button v-for="o in statsOverview" :key="o.account_id" @click="filterAccount(o.account_id)" class="px-3 py-1 rounded-full"
+            :class="statsAccountFilter===o.account_id ? 'bg-slate-800 text-white' : 'bg-white border border-slate-200'">{{ o.account_name }}</button>
+        </div>
+        <div class="card overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500 text-xs">
+              <tr>
+                <th class="text-left p-3">笔记</th><th class="text-left p-3">账号</th><th class="text-left p-3">发布时间</th>
+                <th class="p-3">曝光</th><th class="p-3">阅读</th><th class="p-3">点赞</th><th class="p-3">收藏</th><th class="p-3">评论</th><th class="p-3">分享</th>
+                <th class="text-left p-3">采集状态</th>
+                <th class="text-left p-3">采集时间</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr v-for="r in statsNotes" :key="r.note_id" class="hover:bg-slate-50">
+                <td class="p-3 max-w-56 truncate font-medium">{{ r.title }}</td>
+                <td class="p-3 text-slate-500">{{ r.account_name }}</td>
+                <td class="p-3 text-slate-500 text-xs">{{ (r.published_at||'').slice(5,16) }}</td>
+                <td class="p-3 text-center font-semibold">{{ r.impression ?? '—' }}<span v-if="r.delta && r.delta.impression" class="text-[10px] text-green-600 ml-0.5">+{{r.delta.impression}}</span></td>
+                <td class="p-3 text-center">{{ r.read ?? '—' }}<span v-if="r.delta && r.delta.read" class="text-[10px] text-green-600 ml-0.5">+{{r.delta.read}}</span></td>
+                <td class="p-3 text-center">{{ r.like ?? '—' }}<span v-if="r.delta && r.delta.like" class="text-[10px] text-green-600 ml-0.5">+{{r.delta.like}}</span></td>
+                <td class="p-3 text-center">{{ r.collect ?? '—' }}</td>
+                <td class="p-3 text-center">{{ r.comment ?? '—' }}</td>
+                <td class="p-3 text-center">{{ r.share ?? '—' }}</td>
+                <td class="p-3 text-xs">
+                  <span v-if="r.tracking_status==='pending_first_fetch'" class="text-slate-400">⏳ 待首次采集</span>
+                  <span v-else-if="r.tracking_status==='verified_zero'" class="text-slate-500 font-medium">已采集 (读数为 0)</span>
+                  <span v-else class="text-green-600 font-medium">已追踪 ({{ r.source || 'dom' }})</span>
+                </td>
+                <td class="p-3 text-slate-400 text-xs">{{ (r.fetched_at||'—').slice(5,16) }}</td>
+              </tr>
+              <tr v-if="!statsNotes.length"><td colspan="11" class="p-10 text-center text-slate-400 text-sm">发布笔记并采集后这里会显示数据(每篇笔记、每账号独立追踪)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 日志 -->
+      <section v-if="tab==='logs'">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">运行日志</h2>
+          <button class="btn btn-ghost" @click="loadLogs">刷新</button>
+        </div>
+        <div class="card divide-y divide-slate-100 text-sm font-mono">
+          <div v-for="l in logs" :key="l.id" class="px-4 py-2 flex gap-3">
+            <span class="text-slate-400 text-xs shrink-0 w-36">{{ l.created_at.slice(5,19) }}</span>
+            <span class="badge shrink-0" :class="l.level==='error' ? 'bg-red-100 text-red-600' : l.level==='warn' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'">{{ l.source }}</span>
+            <span class="text-slate-700">{{ l.message }}</span>
+          </div>
+          <div v-if="!logs.length" class="p-10 text-center text-slate-400 text-sm">暂无日志</div>
+        </div>
+      </section>
+      <!-- 设置 -->
+      <section v-if="tab==='settings'">
+        <h2 class="text-xl font-bold mb-4">设置</h2>
+        <div class="card p-5 space-y-5 max-w-2xl">
+          <div>
+            <label class="text-xs text-slate-500 mb-1 block">Obsidian 待发布文件夹</label>
+            <input class="inp" v-model="settingsForm.obsidian_dir" placeholder="/Users/xxx/Documents/MyVault/小红书/待发布">
+          </div>
+          <div>
+            <label class="text-xs text-slate-500 mb-1 block">Obsidian 已发布文件夹(导入后 md 移入;留空则用「待发布/已发布」)</label>
+            <input class="inp" v-model="settingsForm.published_dir" placeholder="留空自动用「待发布/已发布」">
+          </div>
+          <div>
+            <label class="text-xs text-slate-500 mb-1 block">每日数据采集时间点(逗号分隔 HH:MM,最多 4 个,实际执行带随机分钟偏移)</label>
+            <input class="inp" v-model="settingsForm.collect_times" placeholder="10:30,21:30">
+          </div>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" v-model="settingsForm.headless">
+            无头模式运行浏览器(关闭后发布/采集时能看到浏览器窗口,排查问题用)
+          </label>
+          <div class="text-[11px] text-slate-400 leading-relaxed border-t border-slate-100 pt-3">
+            防封参数(内置):相邻任务间隔 5~15 分钟随机 · 本地定时 ±10 分钟抖动 · 单号每日上限在「账号设置」里逐号调整
+          </div>
+          <div class="flex justify-end">
+            <button class="btn btn-primary" @click="saveSettings">保存设置</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 添加账号弹窗 -->
+  <div v-if="addModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="addModal=false">
+    <div class="card p-6 w-[380px]">
+      <h3 class="font-bold mb-3">添加账号</h3>
+      <template v-if="!addStep2">
+        <input class="inp mb-4" v-model="newName" placeholder="给账号起个备注名,如:美妆小号">
+        <div class="flex gap-2 justify-end">
+          <button class="btn btn-ghost" @click="addModal=false">取消</button>
+          <button class="btn btn-primary" @click="createAccount" :disabled="!newName.trim()">下一步</button>
+        </div>
+      </template>
+      <template v-else>
+        <p class="text-sm text-slate-600 mb-3">用 <b>小红书 APP</b> 扫描下方二维码登录:</p>
+        <div class="w-56 h-56 mx-auto bg-slate-100 rounded-xl flex items-center justify-center overflow-hidden">
+          <img v-if="qrData" :src="qrData" class="w-full h-full object-contain">
+          <span v-else class="text-slate-400 text-sm animate-pulse">{{ qrMessage || '正在打开浏览器…' }}</span>
+        </div>
+        <p class="text-xs text-slate-400 text-center mt-3">{{ qrMessage }}</p>
+        <div class="flex gap-2 justify-end mt-4">
+          <button class="btn btn-ghost btn-sm" @click="addModal=false">稍后再说</button>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- 新建笔记弹窗 -->
+  <div v-if="createModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-auto py-8" @click.self="createModal=false">
+    <div class="card p-6 w-[640px] max-h-[90vh] overflow-auto">
+      <h3 class="font-bold mb-4">新建笔记</h3>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="text-xs text-slate-500 mb-1 block">归属账号</label>
+          <select class="inp" v-model="form.account_id">
+            <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.name }} ({{ a.status==='online' ? '在线' : '离线' }})</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 mb-1 block">类型</label>
+          <select class="inp" v-model="form.note_type">
+            <option value="image">图文笔记</option>
+            <option value="video">视频笔记</option>
+          </select>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">标题(最多20字,当前 {{ form.title.length }})</label>
+        <input class="inp" v-model="form.title" maxlength="20" placeholder="填写吸睛爆款标题">
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">正文(支持换行与 emoji)</label>
+        <textarea class="inp" v-model="form.content" rows="6" placeholder="输入正文描述…"></textarea>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">话题(逗号分隔,最多10个)</label>
+        <input class="inp" v-model="form.tags" placeholder="穿搭,日常,OOTD">
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">媒体文件 {{ form.note_type==='image' ? '(可多选图片,≤18张,仅存草稿时可暂不上传)' : '(单个视频)' }}</label>
+        <input type="file" class="text-sm" :multiple="form.note_type==='image'" :accept="form.note_type==='image' ? 'image/*' : 'video/*'" @change="onFiles">
+        <div v-if="filePreviews.length" class="flex gap-2 mt-2 flex-wrap">
+          <template v-if="form.note_type==='image'">
+            <img v-for="(p,i) in filePreviews" :key="i" :src="p" class="w-14 h-14 object-cover rounded-lg border border-slate-200">
+          </template>
+          <span v-else class="text-xs text-slate-500">已选择视频</span>
+        </div>
+      </div>
+      <div class="mb-4 flex flex-wrap gap-4 items-center bg-slate-50 p-3 rounded-lg">
+        <label class="flex items-center gap-2 text-sm font-medium">
+          <input type="radio" value="draft" v-model="form.when_mode"> 仅存为草稿 (默认不发布)
+        </label>
+        <label class="flex items-center gap-2 text-sm font-medium">
+          <input type="radio" value="immediate" v-model="form.when_mode"> 立即排队发布
+        </label>
+        <label class="flex items-center gap-2 text-sm font-medium">
+          <input type="radio" value="schedule" v-model="form.when_mode"> 定时发布
+        </label>
+        <chinese-datetime v-if="form.when_mode==='schedule'" v-model="form.scheduled_at"></chinese-datetime>
+      </div>
+      <p class="text-[11px] text-slate-400 mb-4 leading-relaxed">
+        提示: 草稿默认仅落盘保存，不会触发自动发布。<br>安排发布时需确保归属账号登录态在线且包含有效媒体；本地定时请保持本常驻服务运行。
+      </p>
+      <div class="flex gap-2 justify-end">
+        <button class="btn btn-ghost" @click="createModal=false">取消</button>
+        <button v-if="form.when_mode==='draft'" class="btn btn-primary" @click="saveDraftOnly" :disabled="submitting">{{ submitting ? '保存中…' : '保存草稿' }}</button>
+        <button v-else class="btn btn-primary" @click="submitNote" :disabled="submitting">{{ submitting ? '排期中…' : '安排发布' }}</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑笔记弹窗 -->
+  <div v-if="editModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="editModal=false">
+    <div class="card p-6 w-[560px]">
+      <h3 class="font-bold mb-4">编辑笔记</h3>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">标题</label>
+        <input class="inp" v-model="editForm.title" maxlength="20">
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">正文</label>
+        <textarea class="inp" v-model="editForm.content" rows="5"></textarea>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">话题(逗号分隔)</label>
+        <input class="inp" v-model="editForm.tagsStr">
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">定时(留空=立即)</label>
+        <chinese-datetime v-model="editForm.scheduled_at"></chinese-datetime>
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button class="btn btn-ghost" @click="editModal=false">取消</button>
+        <button class="btn btn-primary" @click="saveNote">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 账号设置弹窗 -->
+  <div v-if="accModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="accModal=false">
+    <div class="card p-6 w-[420px]">
+      <h3 class="font-bold mb-4">账号设置</h3>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">备注名</label>
+        <input class="inp" v-model="accForm.name">
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">每日发布上限</label>
+        <input class="inp" type="number" min="1" max="10" v-model.number="accForm.daily_limit">
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-slate-500 mb-1 block">代理(可选,如 http://127.0.0.1:7890,留空直连)</label>
+        <input class="inp" v-model="accForm.proxy" placeholder="http://user:pass@host:port">
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button class="btn btn-ghost" @click="accModal=false">取消</button>
+        <button class="btn btn-primary" @click="saveAccount">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fixed bottom-4 right-4 z-50 space-y-2">
+    <div v-for="t in toasts" :key="t.id" class="px-4 py-2.5 rounded-lg shadow-lg text-sm text-white"
+      :class="t.type==='error' ? 'bg-red-500' : t.type==='warn' ? 'bg-amber-500' : 'bg-slate-800'">{{ t.msg }}</div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

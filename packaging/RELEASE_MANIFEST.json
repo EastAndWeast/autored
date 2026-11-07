@@ -1,0 +1,29 @@
+{
+  "name": "xhs-ai-assistant",
+  "displayName": "小红书 AI 运营助手",
+  "version": "0.2.0",
+  "release_date": "2026-11-06",
+  "target_os": "macOS",
+  "supported_arch": ["arm64", "x86_64"],
+  "python_requires": ">=3.9,<3.13",
+  "schema_version": 3,
+  "browser_engine": "patchright-chromium",
+  "features": [
+    "标准 MCP Stdio 协议 (JSON-RPC 2.0)",
+    "Codex & WorkBuddy AI 创作专属 Skill 与配置安全合并",
+    "草稿落盘优先与定时发布分离，支持空图片与离线账号存稿",
+    "发布任务持久化、幂等去重防重复建发稿",
+    "断点崩溃自愈机制: 提交中途崩溃转 verifying 待平台核对，禁止盲目重发",
+    "单实例守护与跨进程 Profile 互斥文件锁",
+    "本地定时任务逾期(overdue)暂停防电脑休眠唤醒后批量补发",
+    "数据闭环: 区分未采集与真实0，歧义同名笔记防乱绑定",
+    "macOS LaunchAgent 用户级开机常驻服务",
+    "全量数据一致性备份、校验与安全回退"
+  ],
+  "components": {
+    "core": "app/",
+    "skills": "skills/",
+    "installer": "scripts/install.sh",
+    "lockfile": "requirements.lock"
+  }
+}

@@ -1,0 +1,22 @@
+annotated-doc==0.0.5
+annotated-types==0.7.0
+anyio==4.12.1
+APScheduler==3.11.3
+click==8.1.8
+eval_type_backport==0.4.0; python_version < "3.10"
+exceptiongroup==1.3.1
+fastapi==0.128.8
+greenlet==3.2.5
+h11==0.16.0
+idna==3.20
+patchright==1.60.1
+pydantic==2.13.5
+pydantic_core==2.46.5
+pyee==13.0.1
+python-multipart==0.0.20
+SQLAlchemy==2.0.57
+starlette==0.49.3
+typing-inspection==0.4.2
+typing_extensions==4.16.0
+tzlocal==5.3.1
+uvicorn==0.39.0
