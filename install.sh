@@ -156,17 +156,18 @@ wb.mkdir(parents=True, exist_ok=True)
 
 data = {"mcpServers": {}}
 if cfg.exists():
-    shutil.copy2(cfg, str(cfg) + ".bak")
     try:
         data = json.loads(cfg.read_text(encoding="utf-8"))
     except Exception:
-        print(f"[!] 已有 {cfg} 不是合法 JSON,已跳过自动注册(备份在 .bak)")
+        print(f"[!] 已有 {cfg} 不是合法 JSON,已跳过自动注册")
         sys.exit(0)
 
 servers = data.setdefault("mcpServers", {})
 if "xhs-assistant" in servers:
     print("[i] WorkBuddy 配置中已存在 xhs-assistant,保持原样未覆盖")
 else:
+    if cfg.exists():
+        shutil.copy2(cfg, str(cfg) + ".bak")  # 只在真正要改动时备份
     servers["xhs-assistant"] = server
     cfg.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[✓] 已注册到 {cfg}(原文件备份为 .bak)")

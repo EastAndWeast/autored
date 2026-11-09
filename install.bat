@@ -94,12 +94,11 @@ REM ---------- 6.5 自动注册到 WorkBuddy(安全合并;已存在则不动) --
 set "WBDir=%USERPROFILE%\.workbuddy"
 set "WBCfg=%WBDir%\mcp.json"
 if not exist "%WBDir%" mkdir "%WBDir%"
-if exist "%WBCfg%" copy /y "%WBCfg%" "%WBCfg%.bak" >nul
 set "RegScript=%TEMP%\wb_register.ps1"
 > "%RegScript%" echo $cfg = "%WBCfg%"
 >> "%RegScript%" echo $server = @{ command = "%VENV_PYTHON:\=\/%"; args = @("-m","app.mcp.server"); cwd = "%PROJECT_DIR:\=\/%"; env = @{ PYTHONUNBUFFERED = "1" } }
 >> "%RegScript%" echo if (Test-Path $cfg) { $data = Get-Content $cfg -Raw -Encoding UTF8 | ConvertFrom-Json } else { $data = [pscustomobject]@{ mcpServers = [pscustomobject]@{} } }
->> "%RegScript%" echo if ($data.mcpServers.PSObject.Properties['xhs-assistant']) { Write-Host "[i] WorkBuddy 配置中已存在 xhs-assistant,保持原样未覆盖" } else { if (-not $data.mcpServers) { $data ^| Add-Member -Force -MemberType NoteProperty -Name mcpServers -Value ([pscustomobject]@{}) }; $data.mcpServers ^| Add-Member -Force -MemberType NoteProperty -Name 'xhs-assistant' -Value ([pscustomobject]$server); $data ^| ConvertTo-Json -Depth 6 ^| Set-Content -Path $cfg -Encoding UTF8; Write-Host "[✓] 已注册到 $cfg(原文件备份为 .bak)" }
+>> "%RegScript%" echo if ($data.mcpServers.PSObject.Properties['xhs-assistant']) { Write-Host "[i] WorkBuddy 配置中已存在 xhs-assistant,保持原样未覆盖" } else { if (Test-Path $cfg) { Copy-Item $cfg "$cfg.bak" -Force }; if (-not $data.mcpServers) { $data ^| Add-Member -Force -MemberType NoteProperty -Name mcpServers -Value ([pscustomobject]@{}) }; $data.mcpServers ^| Add-Member -Force -MemberType NoteProperty -Name 'xhs-assistant' -Value ([pscustomobject]$server); $data ^| ConvertTo-Json -Depth 6 ^| Set-Content -Path $cfg -Encoding UTF8; Write-Host "[✓] 已注册到 $cfg(原文件备份为 .bak)" }
 powershell -NoProfile -ExecutionPolicy Bypass -File "%RegScript%" >nul 2>nul && (echo [✓] WorkBuddy 自动注册完成) || (echo [!] 自动注册失败,请手动把 mcp.generated.json 的 mcpServers 段合并进 %WBCfg%)
 del "%RegScript%" 2>nul
 echo [i] 别忘了:在 WorkBuddy「连接器管理 → 自定义连接器」里对新出现的 xhs-assistant 点「信任」
