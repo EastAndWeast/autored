@@ -23,7 +23,9 @@ if exist "%VENV_PYTHON%" set "PYPYTHON=%VENV_PYTHON%"
 where python >nul 2>nul
 if errorlevel 1 if not exist "%VENV_PYTHON%" (
   echo [x] 未找到 python, 请先安装 Python 3.9 以上并勾选 Add to PATH
-  pause & exit /b 1
+  if defined CI exit /b 1
+  pause
+  exit /b 1
 )
 for /f "tokens=2" %%i in ('%PYPYTHON% --version 2^>^&1') do set PYVER=%%i
 for /f %%n in ('%PYPYTHON% -c "import sys;print(sys.version_info.major*100+sys.version_info.minor)"') do set PYNUM=%%n
@@ -35,7 +37,9 @@ if "%ALLOW_UNSUPPORTED_PYTHON%"=="1" (
 )
 echo [x] Python %PYVER% 不受支持, 官方支持范围是 3.9 到 3.13
 echo     请安装 3.12 或 3.13 后重试, 或先执行: set ALLOW_UNSUPPORTED_PYTHON=1
-pause & exit /b 1
+if defined CI exit /b 1
+pause
+exit /b 1
 :pyver_ok
 echo [OK] Python %PYVER%  [%PYPYTHON%]
 
@@ -72,15 +76,19 @@ mkdir data\profiles 2>nul
 echo [OK] 数据目录就绪
 
 REM ---------- 6. 生成 WorkBuddy connector 配置 ----------
-"%VENV_PYTHON%" -c "import pathlib; p=pathlib.Path('skills/workbuddy/connector.template.json').read_text(encoding='utf-8'); import json; py=str(pathlib.Path(r'%VENV_PYTHON%')); proj=str(pathlib.Path(r'%PROJECT_DIR%')); p=p.replace('{{VENV_PYTHON}}', py).replace('{{PROJECT_DIR}}', proj); pathlib.Path('skills/workbuddy/connector.json').write_text(p, encoding='utf-8'); json.loads(p); print('OK connector.json rendered and valid')"
+"%VENV_PYTHON%" -c "import pathlib,json; p=pathlib.Path('skills/workbuddy/connector.template.json').read_text(encoding='utf-8'); py=json.dumps(str(pathlib.Path(r'%VENV_PYTHON%'))); proj=json.dumps(str(pathlib.Path(r'%PROJECT_DIR%'))); p=p.replace('{{VENV_PYTHON}}', py).replace('{{PROJECT_DIR}}', proj); pathlib.Path('skills/workbuddy/connector.json').write_text(p, encoding='utf-8'); json.loads(p); print('OK connector.json rendered and valid')"
 if errorlevel 1 (
   echo [x] connector.json 生成失败
-  pause & exit /b 1
+  if defined CI exit /b 1
+  pause
+  exit /b 1
 )
 "%VENV_PYTHON%" -c "import json,sys; from pathlib import Path; py=str(Path(r'%VENV_PYTHON%')); proj=str(Path(r'%PROJECT_DIR%')); cfg={'mcpServers':{'xhs-assistant':{'command':py,'args':['-m','app.mcp.server'],'cwd':proj,'env':{'PYTHONUNBUFFERED':'1'}}}}; Path('mcp.generated.json').write_text(json.dumps(cfg,ensure_ascii=False,indent=2),encoding='utf-8'); print('OK mcp.generated.json')"
 if errorlevel 1 (
   echo [x] mcp.generated.json 生成失败
-  pause & exit /b 1
+  if defined CI exit /b 1
+  pause
+  exit /b 1
 )
 echo [OK] 已生成 skills\workbuddy\connector.json 与 mcp.generated.json
 
