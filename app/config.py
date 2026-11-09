@@ -37,6 +37,29 @@ PORT = int(os.environ.get("XHS_PORT", "8643"))
 DEFAULT_TIMEZONE = os.environ.get("XHS_TIMEZONE", "Asia/Shanghai")
 
 
+def _ensure_dir(d: Path, retries: int = 3) -> None:
+    """mkdir(exist_ok=True) + Windows 竞争重试。
+
+    Windows CI/杀软实时扫描下,紧邻的两次 mkdir 偶发 WinError 183
+    (目录已存在但 exist_ok 的 is_dir/stat 瞬时失败),重试即可吸收。
+    """
+    import time
+
+    last_err: Exception | None = None
+    for i in range(retries):
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            return
+        except FileExistsError as e:
+            if d.is_dir():
+                return
+            last_err = e
+        except OSError as e:  # WinError 共享冲突等瞬时错误
+            last_err = e
+        time.sleep(0.2 * (i + 1))
+    raise last_err if last_err else OSError(f"mkdir failed: {d}")
+
+
 def configure_data_dir(data_dir: Path | str) -> None:
     """动态重置数据目录(测试或用户配置路径切换)。"""
     global DATA_DIR, UPLOADS_DIR, PROFILES_DIR, DB_PATH
@@ -45,11 +68,11 @@ def configure_data_dir(data_dir: Path | str) -> None:
     PROFILES_DIR = DATA_DIR / "profiles"
     DB_PATH = DATA_DIR / "app.db"
     for _d in (DATA_DIR, UPLOADS_DIR, PROFILES_DIR):
-        _d.mkdir(parents=True, exist_ok=True)
+        _ensure_dir(_d)
 
 
 for _d in (DATA_DIR, UPLOADS_DIR, PROFILES_DIR):
-    _d.mkdir(parents=True, exist_ok=True)
+    _ensure_dir(_d)
 
 # ---- 防封频控(可在设置页调整) ----
 DEFAULT_DAILY_LIMIT = 2              # 每账号每日发布上限

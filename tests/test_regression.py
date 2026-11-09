@@ -290,7 +290,9 @@ class RegressionTestSuite(unittest.TestCase):
         main_mod._cleanup_state_files()
         main_mod._tighten_permissions()
         self.assertFalse(st_file.exists())
-        self.assertEqual(oct(config.DB_PATH.stat().st_mode & 0o777), "0o600")
+        @unittest_skip_win = None  # placeholder
+        if sys.platform != "win32":
+            self.assertEqual(oct(config.DB_PATH.stat().st_mode & 0o777), "0o600")
 
         sanitized = scheduler_mod._sanitize_error(RuntimeError(f"failed at {config.BASE_DIR}/app/xhs"))
         self.assertNotIn(str(config.BASE_DIR), sanitized)

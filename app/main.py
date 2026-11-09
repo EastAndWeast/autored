@@ -65,8 +65,15 @@ def _cleanup_state_files() -> None:
 
 
 def _tighten_permissions() -> None:
-    """数据目录与库文件仅限当前用户读写(S-03)。"""
+    """数据目录与库文件仅限当前用户读写(S-03)。
+
+    Windows 的 chmod 是粗粒度位映射(0600 会呈现为 0o666),语义无效,直接跳过。
+    """
     import os
+    import sys
+
+    if sys.platform == "win32":
+        return
 
     for d in (config.DATA_DIR, config.PROFILES_DIR, config.UPLOADS_DIR):
         try:
