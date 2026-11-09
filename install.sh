@@ -1,20 +1,44 @@
 #!/usr/bin/env bash
 # =============================================================
 # 小红书/Rednote AI 运营助手 — 一键安装脚本 (macOS / Linux)
-# 用法:  bash install.sh [--start]
-#   --start  安装完成后立即后台启动服务并打开网页
+#
+# 三种用法:
+#   1) 一句话安装(脚本不在仓库内时自动克隆到 ~/autored):
+#        curl -fsSL https://raw.githubusercontent.com/EastAndWeast/autored/main/install.sh | bash
+#      自定义安装位置:  curl -fsSL <同上URL> | XHS_HOME=/目标路径 bash
+#   2) 仓库内执行:  bash install.sh
+#   3) --start  安装完成后立即后台启动服务
 # =============================================================
 set -euo pipefail
-
-cd "$(dirname "$0")"
-PROJECT_DIR="$(pwd -P)"
-VENV_PYTHON="$PROJECT_DIR/venv/bin/python"
-WB_DIR="$PROJECT_DIR/skills/workbuddy"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 info()  { echo -e "${GREEN}[✓]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
 fail()  { echo -e "${RED}[✗]${NC} $1"; exit 1; }
+
+REPO_URL="https://github.com/EastAndWeast/autored.git"
+
+# ---- 定位项目:支持「一句话/curl 直装」(脚本不在仓库内时自动克隆) ----
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd -P || true)"
+if [ ! -f "$SELF_DIR/app/main.py" ]; then
+  TARGET="${XHS_HOME:-$HOME/autored}"
+  command -v git >/dev/null 2>&1 \
+    || fail "未找到 git。macOS: 运行 xcode-select --install 后重试;Linux: sudo apt install git"
+  if [ -f "$TARGET/app/main.py" ]; then
+    info "检测到已装目录 $TARGET,更新代码…"
+    git -C "$TARGET" pull --ff-only >/dev/null 2>&1 || warn "更新失败,使用现有版本继续"
+  else
+    warn "首次安装:克隆仓库到 $TARGET …"
+    git clone --depth 1 "$REPO_URL" "$TARGET" \
+      || fail "克隆失败,请检查网络后重试(也可手动下载仓库 zip 解压后运行 install.sh)"
+  fi
+  cd "$TARGET"
+else
+  cd "$SELF_DIR"
+fi
+PROJECT_DIR="$(pwd -P)"
+VENV_PYTHON="$PROJECT_DIR/venv/bin/python"
+WB_DIR="$PROJECT_DIR/skills/workbuddy"
 
 echo ""
 echo "=========================================="

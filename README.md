@@ -6,21 +6,35 @@
 
 ## 三步上手
 
+**方式一:一句话安装(推荐)**
+
+macOS / Linux 终端一条命令,自动克隆到 `~/autored` 并装好一切:
+
 ```bash
-# 1) 拉代码
+curl -fsSL https://raw.githubusercontent.com/EastAndWeast/autored/main/install.sh | bash
+```
+
+> 自定义位置:`curl -fsSL <同上URL> | XHS_HOME=/目标路径 bash`
+> 国内 raw 慢的等价替代:`curl -fsSL https://cdn.jsdelivr.net/gh/EastAndWeast/autored@main/install.sh | bash`
+> Windows(PowerShell):`git clone https://github.com/EastAndWeast/autored.git $env:USERPROFILE\autored; cd $env:USERPROFILE\autored; .\install.bat`
+
+**方式二:在 WorkBuddy 里一句话安装(对话式)**
+
+把这句话粘贴给 WorkBuddy:
+
+> 帮我安装开源项目 https://github.com/EastAndWeast/autored (小红书 AI 运营助手):克隆到 ~/autored,运行其中的 install.sh 完成依赖安装,装好后把生成的 mcp.generated.json 注册到你的 MCP 配置里(若无法自动注册,告诉我手动导入的步骤),最后验证 tools/list 可以连通。
+
+**方式三:手动克隆**
+
+```bash
 git clone https://github.com/EastAndWeast/autored.git
-cd <YOUR_REPO>
-
-# 2) 一键安装(自动建环境/装依赖/下 Chromium/生成 MCP 配置)
-bash install.sh            # macOS / Linux
-# Windows: 双击 install.bat
-
-# 3) 在 WorkBuddy 的 MCP 设置里添加本工具,内容用安装生成的:
-#    mcp.generated.json
-#    (或手动填: command=<项目目录>/venv/bin/python  args=-m app.mcp.server  cwd=<项目目录>)
+cd autored
+bash install.sh            # macOS / Linux;Windows 双击 install.bat
 ```
 
 装完在 WorkBuddy 里说「**查询助手状态**」验证连接,然后「**启动登录**」开始添加账号。
+
+> 说明:克隆 + 安装 + 生成 MCP 配置全自动;最后「导入 mcp.generated.json 到 WorkBuddy」取决于你的 WorkBuddy 版本是否支持从文件自动注册——支持则零操作,不支持时在设置页手动导入一次(一分钟内)。
 
 ## 在 WorkBuddy 里怎么用
 
