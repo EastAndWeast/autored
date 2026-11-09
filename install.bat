@@ -76,7 +76,7 @@ mkdir data\profiles 2>nul
 echo [OK] 数据目录就绪
 
 REM ---------- 6. 生成 WorkBuddy connector 配置 ----------
-"%VENV_PYTHON%" -c "import pathlib,json; p=pathlib.Path('skills/workbuddy/connector.template.json').read_text(encoding='utf-8'); py=json.dumps(str(pathlib.Path(r'%VENV_PYTHON%'))); proj=json.dumps(str(pathlib.Path(r'%PROJECT_DIR%'))); p=p.replace('{{VENV_PYTHON}}', py).replace('{{PROJECT_DIR}}', proj); pathlib.Path('skills/workbuddy/connector.json').write_text(p, encoding='utf-8'); json.loads(p); print('OK connector.json rendered and valid')"
+"%VENV_PYTHON%" -c "import pathlib,json; p=pathlib.Path('skills/workbuddy/connector.template.json').read_text(encoding='utf-8'); py=json.dumps(str(pathlib.Path(r'%VENV_PYTHON%')))[1:-1]; proj=json.dumps(str(pathlib.Path(r'%PROJECT_DIR%')))[1:-1]; p=p.replace('{{VENV_PYTHON}}', py).replace('{{PROJECT_DIR}}', proj); pathlib.Path('skills/workbuddy/connector.json').write_text(p, encoding='utf-8'); json.loads(p); print('OK connector.json rendered and valid')"
 if errorlevel 1 (
   echo [x] connector.json 生成失败
   if defined CI exit /b 1

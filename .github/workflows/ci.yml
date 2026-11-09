@@ -89,7 +89,7 @@ jobs:
           p = subprocess.run(
               [sys.executable, "-m", "app.mcp.server"],
               input="\n".join(json.dumps(r) for r in reqs) + "\n",
-              capture_output=True, text=True, timeout=60,
+              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60,
           )
           tools = None
           for line in p.stdout.splitlines():
