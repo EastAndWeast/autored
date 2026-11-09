@@ -290,8 +290,8 @@ class RegressionTestSuite(unittest.TestCase):
         main_mod._cleanup_state_files()
         main_mod._tighten_permissions()
         self.assertFalse(st_file.exists())
-        @unittest_skip_win = None  # placeholder
         if sys.platform != "win32":
+            # chmod 在 Windows 是粗粒度位映射(0600 呈现为 0o666),语义无效
             self.assertEqual(oct(config.DB_PATH.stat().st_mode & 0o777), "0o600")
 
         sanitized = scheduler_mod._sanitize_error(RuntimeError(f"failed at {config.BASE_DIR}/app/xhs"))
