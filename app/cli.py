@@ -27,6 +27,10 @@ from .models import Account, Note, PublishJob, SessionLocal, init_db
 PID_FILE = config.DATA_DIR / "xhs_assistant.pid"
 LOG_FILE = config.DATA_DIR / "server.log"
 
+# Windows 没有 SIGKILL(访问即 AttributeError);os.kill 其他信号值在 Windows
+# 走 TerminateProcess 无条件终止,语义上等同强杀
+HARD_KILL_SIG = getattr(signal, "SIGKILL", signal.SIGTERM)
+
 
 def get_running_pid() -> int | None:
     """获取当前正在运行的服务进程 PID;若进程已死则清理残留 pid 文件。"""
@@ -167,7 +171,7 @@ def cmd_stop() -> int:
         else:
             print(f"进程 {pid} 未按时退出,正在强制终止...")
             try:
-                os.kill(pid, signal.SIGKILL)
+                os.kill(pid, HARD_KILL_SIG)
             except OSError:
                 pass
     except Exception as e:
