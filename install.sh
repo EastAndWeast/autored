@@ -138,40 +138,8 @@ render_connector
 info "已生成 skills/workbuddy/connector.json 与 mcp.generated.json"
 
 # ---------- 6.5 自动注册到 WorkBuddy(安全合并;已存在则不动) ----------
-warn "注册到 WorkBuddy (~/.workbuddy/mcp.json)…"
-"$VENV_PYTHON" - "$PROJECT_DIR" <<'WBEOF'
-import json, shutil, sys
-from pathlib import Path
-
-proj = sys.argv[1]
-server = {
-    "command": str(Path(proj) / "venv/bin/python"),
-    "args": ["-m", "app.mcp.server"],
-    "cwd": proj,
-    "env": {"PYTHONUNBUFFERED": "1"},
-}
-wb = Path.home() / ".workbuddy"
-cfg = wb / "mcp.json"
-wb.mkdir(parents=True, exist_ok=True)
-
-data = {"mcpServers": {}}
-if cfg.exists():
-    try:
-        data = json.loads(cfg.read_text(encoding="utf-8"))
-    except Exception:
-        print(f"[!] 已有 {cfg} 不是合法 JSON,已跳过自动注册")
-        sys.exit(0)
-
-servers = data.setdefault("mcpServers", {})
-if "xhs-assistant" in servers:
-    print("[i] WorkBuddy 配置中已存在 xhs-assistant,保持原样未覆盖")
-else:
-    if cfg.exists():
-        shutil.copy2(cfg, str(cfg) + ".bak")  # 只在真正要改动时备份
-    servers["xhs-assistant"] = server
-    cfg.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[✓] 已注册到 {cfg}(原文件备份为 .bak)")
-WBEOF
+"$VENV_PYTHON" "$PROJECT_DIR/wb_register.py" "$PROJECT_DIR" \
+  || warn "自动注册未完成,请手动把 mcp.generated.json 的 mcpServers 段合并进 ~/.workbuddy/mcp.json"
 info "别忘了:在 WorkBuddy「连接器管理 → 自定义连接器」里对新出现的 xhs-assistant 点「信任」"
 
 # ---------- 7. 可选:立即启动 ----------

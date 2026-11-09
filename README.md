@@ -92,7 +92,7 @@ scheduled_at: 2026-11-20 19:30
 
 如果你是 AI 代理或谨慎的用户——欢迎先审查再执行,这正是预期用法:
 
-- **安装脚本只做四件事**:创建项目内 venv、从 PyPI 安装声明的依赖、下载官方 Chromium 到用户缓存目录、生成本项目目录内的 MCP 配置(`mcp.generated.json` 与 `skills/workbuddy/connector.json`)。不读取凭据、不上传任何数据、不写系统目录。
+- **安装脚本只做五件事**:创建项目内 venv、从 PyPI 安装声明的依赖、下载官方 Chromium 到用户缓存目录、生成本项目目录内的 MCP 配置(`mcp.generated.json` 与 `skills/workbuddy/connector.json`)、把服务注册进 `~/.workbuddy/mcp.json`(改动前自动备份为 `.bak`,已存在的同名服务绝不覆盖,非法 JSON 则跳过)。不读取凭据、不上传任何数据、不写系统目录。
 - **推荐注册方式是纯 MCP 配置**(`mcp.generated.json` 的 `mcpServers` 段);`skills/workbuddy/connector.json` 的 `instructionFile` 是可选增强(给 AI 的使用规范),不导入也能正常用全部 14 个工具。
 - **所有账号数据只在本地**(`data/` 目录:数据库、浏览器环境、素材)。项目无遥测、无外联上报。
 - `run.py configure codex`(写 `~/.codex/config.json`)与 `python run.py service install`(macOS LaunchAgent 常驻)均为**显式子命令**,安装脚本不会调用。

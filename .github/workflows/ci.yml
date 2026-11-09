@@ -60,11 +60,19 @@ jobs:
 
           # Windows runner 的 vctip.exe(VS 遥测)会间歇性向进程组发 Ctrl+C,
           # 打断正常测试(STATUS_CONTROL_C_EXIT)。失败后自动重跑一次吸收干扰。
-          ok = run_suite()
-          if not ok:
-              print("[CI] 测试未通过,10 秒后自动重跑一次(吸收 runner 环境瞬时干扰)…")
-              time.sleep(10)
-              ok = run_suite()
+          # Windows runner 的 vctip.exe 等会以 KeyboardInterrupt 形式打断套件,
+          # 必须捕获异常本身(仅靠返回值重试拦不住)
+          for attempt in (1, 2):
+              try:
+                  ok = run_suite()
+              except BaseException as e:  # noqa: BLE001  含 KeyboardInterrupt
+                  print(f"[CI] 第 {attempt} 次套件被外部中断: {type(e).__name__}")
+                  ok = False
+              if ok:
+                  break
+              if attempt == 1:
+                  print("[CI] 10 秒后自动重跑一次(吸收 runner 环境瞬时干扰)…")
+                  time.sleep(10)
           os._exit(0 if ok else 1)
 
       - name: MCP stdio smoke (initialize + tools/list)
@@ -93,6 +101,29 @@ jobs:
                   tools = d["result"]["tools"]
           assert tools and len(tools) >= 10, f"MCP tools/list failed: rc={p.returncode}, stderr={p.stderr[-500:]}"
           print(f"MCP OK: {len(tools)} tools")
+
+      - name: Installer smoke
+        env:
+          CI: "1"
+        shell: bash
+        run: |
+          set -e
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmd //c install.bat
+            PY="venv/Scripts/python.exe"
+          else
+            bash install.sh
+            PY="venv/bin/python"
+          fi
+          test -f "$PY"
+          python - <<'PYCHECK'
+          import json
+          json.load(open("mcp.generated.json", encoding="utf-8"))
+          c = json.load(open("skills/workbuddy/connector.json", encoding="utf-8"))
+          assert "{{" not in open("skills/workbuddy/connector.json", encoding="utf-8").read(), "模板占位符未渲染"
+          assert len(c["args"]) >= 1
+          print("installer artifacts OK")
+          PYCHECK
 
       - name: Smoke — service health (headless start)
         env:

@@ -15,6 +15,16 @@ from .models import LogEntry, SessionLocal, init_db
 from .scheduler import shutdown as sched_shutdown
 from .scheduler import start as sched_start
 
+# 版本号以仓库根 VERSION 文件为准(避免多处硬编码漂移)
+def _read_version() -> str:
+    try:
+        return (config.BASE_DIR / "VERSION").read_text(encoding="utf-8").strip()
+    except Exception:
+        return "0.2.0"
+
+
+APP_VERSION = _read_version()
+
 app = FastAPI(title="小红书发布助手", docs_url=None, redoc_url=None)
 
 # ---- S-02: 本地服务的 CSRF / DNS-Rebinding 防护 ----
@@ -118,7 +128,7 @@ def get_logs(limit: int = Query(200, le=1000)):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.1.0"}
+    return {"ok": True, "version": APP_VERSION}
 
 
 # ---- 静态界面 ----
