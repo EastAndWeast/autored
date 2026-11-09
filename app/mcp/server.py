@@ -619,6 +619,13 @@ def process_message(msg: dict[str, Any]) -> dict[str, Any] | None:
 
 def run_stdio_server() -> None:
     """标准输入输出事件主循环。"""
+    if sys.platform == "win32":
+        # Windows 管道默认 charmap,中文工具描述会 UnicodeEncodeError
+        for _s in (sys.stdout, sys.stderr, sys.stdin):
+            try:
+                _s.reconfigure(encoding="utf-8")
+            except Exception:
+                pass
     sys.stderr.write("[MCP] 小红书 AI 运营助手 Stdio MCP Server 已启动...\n")
     sys.stderr.flush()
 
@@ -634,7 +641,7 @@ def run_stdio_server() -> None:
             req = json.loads(stripped)
             resp = process_message(req)
             if resp is not None:
-                out_line = json.dumps(resp, ensure_ascii=False)
+                out_line = json.dumps(resp, ensure_ascii=True)  # wire 层 ASCII 转义,任何管道编码安全
                 sys.stdout.write(out_line + "\n")
                 sys.stdout.flush()
         except Exception as e:
@@ -646,7 +653,7 @@ def run_stdio_server() -> None:
                     "message": f"Parse error: {e}",
                 },
             }
-            sys.stdout.write(json.dumps(err_resp, ensure_ascii=False) + "\n")
+            sys.stdout.write(json.dumps(err_resp, ensure_ascii=True) + "\n")
             sys.stdout.flush()
 
 
