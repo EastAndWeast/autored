@@ -5,7 +5,7 @@
   "release_date": "2026-11-06",
   "target_os": "macOS",
   "supported_arch": ["arm64", "x86_64"],
-  "python_requires": ">=3.9,<3.13",
+  "python_requires": ">=3.9,<3.14",
   "schema_version": 3,
   "browser_engine": "patchright-chromium",
   "features": [

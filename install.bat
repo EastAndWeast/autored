@@ -24,15 +24,15 @@ if errorlevel 1 (
 )
 for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYVER=%%i
 echo [✓] Python %PYVER%
-REM 支持范围与 packaging/RELEASE_MANIFEST.json 一致: >=3.9,<3.13
+REM 支持范围与 packaging/RELEASE_MANIFEST.json 一致: >=3.9,<3.14(CI 已验证 3.13)
 for /f %%n in ('python -c "import sys;print(sys.version_info.major*100+sys.version_info.minor)"') do set PYNUM=%%n
 if %PYNUM% LSS 309 (
   echo [✗] Python %PYVER% 过旧,需要 3.9 ~ 3.12
   pause & exit /b 1
 )
-if %PYNUM% GEQ 313 (
+if %PYNUM% GEQ 314 (
   if not "%ALLOW_UNSUPPORTED_PYTHON%"=="1" (
-    echo [✗] Python %PYVER% 不受支持(需要 3.9 ~ 3.12)。可安装 3.12,或先 set ALLOW_UNSUPPORTED_PYTHON=1 强制继续
+    echo [✗] Python %PYVER% 不受支持(需要 3.9 ~ 3.13)。可安装 3.12/3.13,或先 set ALLOW_UNSUPPORTED_PYTHON=1 强制继续
     pause & exit /b 1
   )
   echo [!] Python %PYVER% 不在官方支持范围,已按 ALLOW_UNSUPPORTED_PYTHON=1 强制继续

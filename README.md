@@ -65,7 +65,7 @@ PLAYWRIGHT_DOWNLOAD_HOST="https://npmmirror.com/mirrors/playwright" ./venv/bin/p
 ./venv/bin/python run.py                          # 打开 http://127.0.0.1:8643
 ```
 
-> 需要 Python ≥3.9。换端口:`XHS_PORT=9000`。数据目录:`XHS_DATA_DIR`。更多环境变量见 `app/config.py` 注释。
+> 需要 Python ≥3.9(CI 已验证至 3.13)。换端口:`XHS_PORT=9000`。数据目录:`XHS_DATA_DIR`。更多环境变量见 `app/config.py` 注释。
 
 ## 使用流程(网页后台)
 

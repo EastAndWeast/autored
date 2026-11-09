@@ -64,14 +64,14 @@ $PY - "$PYVER" <<'EOF'
 import sys
 v = sys.argv[1].split(".")
 num = int(v[0]) * 100 + int(v[1])
-# 支持范围与 packaging/RELEASE_MANIFEST.json 一致: >=3.9,<3.13
-sys.exit(0 if 309 <= num < 313 else 1)
+# 支持范围与 packaging/RELEASE_MANIFEST.json 一致: >=3.9,<3.14(CI 已验证 3.13)
+sys.exit(0 if 309 <= num < 314 else 1)
 EOF
 if [ $? -ne 0 ]; then
   if [[ "${ALLOW_UNSUPPORTED_PYTHON:-}" == "1" ]]; then
-    warn "Python $PYVER 不在官方支持范围(3.9~3.12),ALLOW_UNSUPPORTED_PYTHON=1 已强制继续"
+    warn "Python $PYVER 不在官方支持范围(3.9~3.13),ALLOW_UNSUPPORTED_PYTHON=1 已强制继续"
   else
-    fail "Python $PYVER 不受支持(需要 3.9 ~ 3.12)。可安装 3.12 后重试,或设置 ALLOW_UNSUPPORTED_PYTHON=1 强制继续"
+    fail "Python $PYVER 不受支持(需要 3.9 ~ 3.13)。可安装 3.12/3.13 后重试,或设置 ALLOW_UNSUPPORTED_PYTHON=1 强制继续"
   fi
 fi
 info "Python $PYVER"
