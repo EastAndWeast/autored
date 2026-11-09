@@ -24,6 +24,19 @@ if errorlevel 1 (
 )
 for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYVER=%%i
 echo [✓] Python %PYVER%
+REM 支持范围与 packaging/RELEASE_MANIFEST.json 一致: >=3.9,<3.13
+for /f %%n in ('python -c "import sys;print(sys.version_info.major*100+sys.version_info.minor)"') do set PYNUM=%%n
+if %PYNUM% LSS 309 (
+  echo [✗] Python %PYVER% 过旧,需要 3.9 ~ 3.12
+  pause & exit /b 1
+)
+if %PYNUM% GEQ 313 (
+  if not "%ALLOW_UNSUPPORTED_PYTHON%"=="1" (
+    echo [✗] Python %PYVER% 不受支持(需要 3.9 ~ 3.12)。可安装 3.12,或先 set ALLOW_UNSUPPORTED_PYTHON=1 强制继续
+    pause & exit /b 1
+  )
+  echo [!] Python %PYVER% 不在官方支持范围,已按 ALLOW_UNSUPPORTED_PYTHON=1 强制继续
+)
 
 REM ---------- 2. 虚拟环境 ----------
 if not exist "%VENV_PYTHON%" (
@@ -76,6 +89,20 @@ del "%TMPScript%" 2>nul
 >> mcp.generated.json echo   }
 >> mcp.generated.json echo }
 echo [✓] 已生成 skills\workbuddy\connector.json 与 mcp.generated.json
+
+REM ---------- 6.5 自动注册到 WorkBuddy(安全合并;已存在则不动) ----------
+set "WBDir=%USERPROFILE%\.workbuddy"
+set "WBCfg=%WBDir%\mcp.json"
+if not exist "%WBDir%" mkdir "%WBDir%"
+if exist "%WBCfg%" copy /y "%WBCfg%" "%WBCfg%.bak" >nul
+set "RegScript=%TEMP%\wb_register.ps1"
+> "%RegScript%" echo $cfg = "%WBCfg%"
+>> "%RegScript%" echo $server = @{ command = "%VENV_PYTHON:\=\/%"; args = @("-m","app.mcp.server"); cwd = "%PROJECT_DIR:\=\/%"; env = @{ PYTHONUNBUFFERED = "1" } }
+>> "%RegScript%" echo if (Test-Path $cfg) { $data = Get-Content $cfg -Raw -Encoding UTF8 | ConvertFrom-Json } else { $data = [pscustomobject]@{ mcpServers = [pscustomobject]@{} } }
+>> "%RegScript%" echo if ($data.mcpServers.PSObject.Properties['xhs-assistant']) { Write-Host "[i] WorkBuddy 配置中已存在 xhs-assistant,保持原样未覆盖" } else { if (-not $data.mcpServers) { $data ^| Add-Member -Force -MemberType NoteProperty -Name mcpServers -Value ([pscustomobject]@{}) }; $data.mcpServers ^| Add-Member -Force -MemberType NoteProperty -Name 'xhs-assistant' -Value ([pscustomobject]$server); $data ^| ConvertTo-Json -Depth 6 ^| Set-Content -Path $cfg -Encoding UTF8; Write-Host "[✓] 已注册到 $cfg(原文件备份为 .bak)" }
+powershell -NoProfile -ExecutionPolicy Bypass -File "%RegScript%" >nul 2>nul && (echo [✓] WorkBuddy 自动注册完成) || (echo [!] 自动注册失败,请手动把 mcp.generated.json 的 mcpServers 段合并进 %WBCfg%)
+del "%RegScript%" 2>nul
+echo [i] 别忘了:在 WorkBuddy「连接器管理 → 自定义连接器」里对新出现的 xhs-assistant 点「信任」
 
 REM ---------- 完成 ----------
 echo.

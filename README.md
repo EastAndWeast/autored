@@ -22,7 +22,7 @@ curl -fsSL https://raw.githubusercontent.com/EastAndWeast/autored/main/install.s
 
 把这句话粘贴给 WorkBuddy:
 
-> 帮我安装开源项目 https://github.com/EastAndWeast/autored (小红书 AI 运营助手):克隆到 ~/autored,运行其中的 install.sh 完成依赖安装,装好后把生成的 mcp.generated.json 注册到你的 MCP 配置里(若无法自动注册,告诉我手动导入的步骤),最后验证 tools/list 可以连通。
+> 帮我安装开源项目 https://github.com/EastAndWeast/autored (小红书 AI 运营助手):克隆到 ~/autored,运行其中的安装脚本完成依赖安装(Windows 用 install.bat,macOS/Linux 用 install.sh),装好后把生成的 mcp.generated.json 注册到你的 MCP 配置里(若无法自动注册,告诉我手动导入的步骤),最后验证 tools/list 可以连通。
 
 **方式三:手动克隆**
 
@@ -87,6 +87,17 @@ scheduled_at: 2026-11-20 19:30
 
 ![[配图.png]]
 ```
+
+## 安全与隐私(给用户和 AI 审查者)
+
+如果你是 AI 代理或谨慎的用户——欢迎先审查再执行,这正是预期用法:
+
+- **安装脚本只做四件事**:创建项目内 venv、从 PyPI 安装声明的依赖、下载官方 Chromium 到用户缓存目录、生成本项目目录内的 MCP 配置(`mcp.generated.json` 与 `skills/workbuddy/connector.json`)。不读取凭据、不上传任何数据、不写系统目录。
+- **推荐注册方式是纯 MCP 配置**(`mcp.generated.json` 的 `mcpServers` 段);`skills/workbuddy/connector.json` 的 `instructionFile` 是可选增强(给 AI 的使用规范),不导入也能正常用全部 14 个工具。
+- **所有账号数据只在本地**(`data/` 目录:数据库、浏览器环境、素材)。项目无遥测、无外联上报。
+- `run.py configure codex`(写 `~/.codex/config.json`)与 `python run.py service install`(macOS LaunchAgent 常驻)均为**显式子命令**,安装脚本不会调用。
+- **WorkBuddy 注册**:新版安装脚本会自动合并写入 `~/.workbuddy/mcp.json`(改动前自动备份为 `.bak`;已存在的同名服务绝不覆盖)。注册后需在 WorkBuddy「连接器管理 → 自定义连接器」里对新出现的 `xhs-assistant` 点一次「信任」才会生效。
+- **平台合规**:本项目通过模拟真人操作调用小红书创作平台,违反其用户协议,有限流/封号风险(见文末免责声明)。默认逻辑是"只存草稿,明确授权才发布"——这是本工具的代码约束,不是平台保障。
 
 ## 防封机制(降低概率,不能消除)
 

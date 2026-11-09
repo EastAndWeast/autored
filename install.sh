@@ -47,6 +47,13 @@ echo "=========================================="
 echo "项目目录: $PROJECT_DIR"
 echo ""
 
+# ---------- 0. 平台检查 ----------
+case "$(uname -s)" in
+  MINGW*|CYGWIN*|MSYS*)
+    fail "检测到 Windows 环境:请改用项目自带的 install.bat(双击或在 PowerShell 中运行)"
+    ;;
+esac
+
 # ---------- 1. Python ----------
 PY=python3
 if ! command -v $PY >/dev/null 2>&1; then
@@ -56,10 +63,17 @@ PYVER=$($PY -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.m
 $PY - "$PYVER" <<'EOF'
 import sys
 v = sys.argv[1].split(".")
-if (int(v[0]), int(v[1])) < (3, 9):
-    sys.exit(1)
+num = int(v[0]) * 100 + int(v[1])
+# 支持范围与 packaging/RELEASE_MANIFEST.json 一致: >=3.9,<3.13
+sys.exit(0 if 309 <= num < 313 else 1)
 EOF
-if [ $? -ne 0 ]; then fail "Python $PYVER 过旧,需要 3.9+"; fi
+if [ $? -ne 0 ]; then
+  if [[ "${ALLOW_UNSUPPORTED_PYTHON:-}" == "1" ]]; then
+    warn "Python $PYVER 不在官方支持范围(3.9~3.12),ALLOW_UNSUPPORTED_PYTHON=1 已强制继续"
+  else
+    fail "Python $PYVER 不受支持(需要 3.9 ~ 3.12)。可安装 3.12 后重试,或设置 ALLOW_UNSUPPORTED_PYTHON=1 强制继续"
+  fi
+fi
 info "Python $PYVER"
 
 # ---------- 2. 虚拟环境 ----------
@@ -122,6 +136,42 @@ EOF
 }
 render_connector
 info "已生成 skills/workbuddy/connector.json 与 mcp.generated.json"
+
+# ---------- 6.5 自动注册到 WorkBuddy(安全合并;已存在则不动) ----------
+warn "注册到 WorkBuddy (~/.workbuddy/mcp.json)…"
+"$VENV_PYTHON" - "$PROJECT_DIR" <<'WBEOF'
+import json, shutil, sys
+from pathlib import Path
+
+proj = sys.argv[1]
+server = {
+    "command": str(Path(proj) / "venv/bin/python"),
+    "args": ["-m", "app.mcp.server"],
+    "cwd": proj,
+    "env": {"PYTHONUNBUFFERED": "1"},
+}
+wb = Path.home() / ".workbuddy"
+cfg = wb / "mcp.json"
+wb.mkdir(parents=True, exist_ok=True)
+
+data = {"mcpServers": {}}
+if cfg.exists():
+    shutil.copy2(cfg, str(cfg) + ".bak")
+    try:
+        data = json.loads(cfg.read_text(encoding="utf-8"))
+    except Exception:
+        print(f"[!] 已有 {cfg} 不是合法 JSON,已跳过自动注册(备份在 .bak)")
+        sys.exit(0)
+
+servers = data.setdefault("mcpServers", {})
+if "xhs-assistant" in servers:
+    print("[i] WorkBuddy 配置中已存在 xhs-assistant,保持原样未覆盖")
+else:
+    servers["xhs-assistant"] = server
+    cfg.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[✓] 已注册到 {cfg}(原文件备份为 .bak)")
+WBEOF
+info "别忘了:在 WorkBuddy「连接器管理 → 自定义连接器」里对新出现的 xhs-assistant 点「信任」"
 
 # ---------- 7. 可选:立即启动 ----------
 if [[ "${1:-}" == "--start" ]]; then
