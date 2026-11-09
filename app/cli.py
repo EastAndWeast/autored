@@ -32,6 +32,16 @@ LOG_FILE = config.DATA_DIR / "server.log"
 HARD_KILL_SIG = getattr(signal, "SIGKILL", signal.SIGTERM)
 
 
+# Windows 控制台默认 charmap(cp1252/gbk),打印 emoji 会 UnicodeEncodeError
+# 在 CLI 入口统一把标准流重配为 UTF-8(其他平台无副作用)
+if sys.platform == "win32":
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def get_running_pid() -> int | None:
     """获取当前正在运行的服务进程 PID;若进程已死则清理残留 pid 文件。"""
     if not PID_FILE.exists():

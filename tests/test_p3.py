@@ -81,6 +81,7 @@ class P3TestSuite(unittest.TestCase):
         self.assertTrue(profile_lock.acquire(account_id=1, timeout=0.1))
         profile_lock.release(account_id=1)
 
+    @unittest.skipIf(sys.platform == "win32", "Windows 无 fcntl;锁回退为线程锁 + Chromium 原生 SingletonLock")
     def test_profile_lock_inter_process_simulation(self):
         """模拟另一个外部进程持有 .profile.lock 时,本进程尝试拿锁应立即被拦截。"""
         import fcntl
