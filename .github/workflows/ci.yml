@@ -44,7 +44,18 @@ jobs:
       - name: Run test suite
         env:
           XHS_DATA_DIR: ${{ runner.temp }}/xhs_ci_data
-        run: python -m unittest discover -s tests -v
+        shell: python
+        run: |
+          import sys, os, unittest
+          sys.path.insert(0, os.getcwd())
+          suite = unittest.TestLoader().discover("tests")
+          runner = unittest.TextTestRunner(verbosity=1, stream=sys.stdout)
+          result = runner.run(suite)
+          sys.stdout.flush(); sys.stderr.flush()
+          print(f"SUMMARY: ran={result.testsRun} failures={len(result.failures)} errors={len(result.errors)} skipped={len(result.skipped)}")
+          # os._exit:Windows 上解释器退出阶段可能被后台线程/驱动进程污染
+          # (测试全绿仍 exit 1);结果已判定,直接按结果退出
+          os._exit(0 if result.wasSuccessful() else 1)
 
       - name: MCP stdio smoke (initialize + tools/list)
         env:
