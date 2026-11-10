@@ -39,13 +39,20 @@ def main() -> int:
     cfg = wb / "mcp.json"
     wb.mkdir(parents=True, exist_ok=True)
 
+    existed_before = cfg.exists()
+
     data: dict = {"mcpServers": {}}
-    if cfg.exists():
+    if existed_before:
         try:
             # utf-8-sig 兼容带 BOM 的旧文件(如 PowerShell 5.1 写出的)
             data = json.loads(cfg.read_text(encoding="utf-8-sig"))
         except Exception:
             print(f"[!] {cfg} is not valid JSON, skipped auto-register.")
+            print("    Please merge mcp.generated.json manually.")
+            return 1
+        # 合法 JSON 但顶层不是对象(如 [1,2,3])同样归入跳过,避免 AttributeError
+        if not isinstance(data, dict):
+            print(f"[!] {cfg} top-level is not a JSON object, skipped auto-register.")
             print("    Please merge mcp.generated.json manually.")
             return 1
 
@@ -54,13 +61,18 @@ def main() -> int:
         print(f"[i] {SERVER_NAME} already exists in {cfg}, kept as-is.")
         return 0
 
-    if cfg.exists():
-        shutil.copy2(cfg, str(cfg) + ".bak")  # 只在真正改动前备份
+    if existed_before:
+        shutil.copy2(cfg, str(cfg) + ".bak")  # 只在真正改动前且原文件存在时备份
+
     servers[SERVER_NAME] = server
     cfg.write_text(
         json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    print(f"[OK] registered to {cfg} (previous file saved as .bak)")
+    if existed_before:
+        print(f"[OK] registered to {cfg} (previous file saved as .bak)")
+    else:
+        # 原文件不存在:没有任何备份可回滚,据实提示
+        print(f"[OK] registered to {cfg} (no previous config, nothing to back up)")
     print("[i] Remember to trust 'xhs-assistant' in WorkBuddy connector settings.")
     return 0
 

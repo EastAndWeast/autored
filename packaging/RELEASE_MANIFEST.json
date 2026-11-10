@@ -30,7 +30,7 @@
   "components": {
     "core": "app/",
     "skills": "skills/",
-    "installer": "scripts/install.sh",
+    "installer": "install.sh",
     "lockfile": "requirements.lock"
   }
 }
